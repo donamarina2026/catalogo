@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Doña Marina - Catálogo Premium</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .selector-cantidad {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .btn-cantidad {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: #333;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .btn-cantidad:hover { background: #555; }
+        .cantidad-numero {
+            min-width: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .producto.seleccionado { border-color: #4ade80; }
+
+        /* Espacio extra abajo para que el pie (con la caja de texto) no tape los productos */
+        body { padding-bottom: 360px; }
+
+        .aviso-catalogo {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #aaa;
+            padding: 40px 10px;
+        }
+
+        /* ===== Chat de texto con Marina ===== */
+        #chat-arturo {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto 12px;
+            background: rgba(0,0,0,0.35);
+            border-radius: 10px;
+            padding: 10px;
+        }
+        #chat-historial {
+            max-height: 160px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding-right: 4px;
+        }
+        .msg-chat {
+            font-size: 13px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            max-width: 85%;
+            line-height: 1.3;
+        }
+        .msg-cliente {
+            align-self: flex-end;
+            background: #2563eb;
+            color: white;
+        }
+        .msg-arturo {
+            align-self: flex-start;
+            background: #333;
+            color: #eee;
+        }
+        #chat-form {
+            display: flex;
+            gap: 6px;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+        }
+        #chat-enviar {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            background: #4ade80;
+            color: #14181C;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #chat-enviar:disabled { opacity: 0.6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <h1>Tienda Doña Marina - <span>Catálogo Premium</span></h1>
+    </header>
+
+    <main class="catalogo" id="grid">
+        <p class="aviso-catalogo">Cargando productos...</p>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content" style="flex-direction: column; gap: 8px;">
+
+            <div id="chat-arturo">
+                <div id="chat-historial"></div>
+                <form id="chat-form">
+                    <input type="text" id="chat-input" placeholder="Escríbale a Marina su pedido..." autocomplete="off">
+                    <button type="submit" id="chat-enviar">Enviar</button>
+                </form>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="total-box">
+                    Subtotal Estimado
+                    <span id="total">COP $0</span>
+                </div>
+                <div>
+                    <button class="btn-finalizar" id="btn-finalizar">Finalizar Pedido</button>
+                </div>
+            </div>
+
+        </div>
+    </footer>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const totalTXT = document.getElementById('total');
+        const btnFinalizar = document.getElementById('btn-finalizar');
+
+        // Dirección del Apps Script PROPIO de Doña Marina (nunca la de Don Arturo).
+        const URL_BACKEND = 'https://script.google.com/macros/s/AKfycbxqrkW78eA_AzW4f3lZmQsgkpo_2IE7AtZRNmdVrgA6Z_-HPK7dQBzkOsgcBmqECJxOrA/exec';
+
+        // El catálogo web muestra los PRIMEROS productos disponibles de la pestaña Catálogo, en el mismo
+        // orden de la hoja. El chat de Marina conoce TODOS los productos. Para mostrar más, subir este número.
+        const PRODUCTOS_EN_PAGINA = 30;
+
+        // Imagen genérica para los productos que todavía no tienen foto.
+        const SIN_FOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200">' +
+            '<rect width="240" height="200" fill="#1a1a1a"/>' +
+            '<g fill="none" stroke="#555" stroke-width="3">' +
+            '<path d="M80 80l40-20 40 20v50l-40 20-40-20z"/><path d="M80 80l40 20 40-20M120 100v50"/></g>' +
+            '<text x="120" y="182" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#777">Foto próximamente</text>' +
+            '</svg>');
+
+        let totalAcumulado = 0;
+        let cantidades = {}; // { id: { producto, cantidad } }
+
+        function esc(texto) {
+            return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function recalcularTotal() {
+            totalAcumulado = 0;
+            Object.values(cantidades).forEach(item => {
+                totalAcumulado += item.producto.precio * item.cantidad;
+            });
+            totalTXT.innerText = `COP $${totalAcumulado.toLocaleString('es-CO')}`;
+        }
+
+        function actualizarTarjeta(prod) {
+            const cantidadActual = cantidades[prod.id] ? cantidades[prod.id].cantidad : 0;
+            const numeroEl = document.getElementById(`cantidad-${prod.id}`);
+            const cardEl = document.getElementById(`card-${prod.id}`);
+            if (numeroEl) numeroEl.innerText = cantidadActual;
+            if (cardEl) cardEl.classList.toggle('seleccionado', cantidadActual > 0);
+        }
+
+        function cambiarCantidad(prod, delta) {
+            const actual = cantidades[prod.id] ? cantidades[prod.id].cantidad : 0;
+            const nueva = Math.max(0, actual + delta);
+
+            if (nueva === 0) {
+                delete cantidades[prod.id];
+            } else {
+                cantidades[prod.id] = { producto: prod, cantidad: nueva };
+            }
+
+            actualizarTarjeta(prod);
+            recalcularTotal();
+        }
+
+        function mostrarProductos(lista) {
+            grid.innerHTML = '';
+            lista.forEach(prod => {
+                const baseFoto = 'prod_' + String(prod.id).padStart(2, '0');
+                const card = document.createElement('div');
+                card.className = 'producto';
+                card.id = `card-${prod.id}`;
+
+                card.innerHTML = `
+                    <div class="indicador"></div>
+                    <div class="img-placeholder">
+                        <img src="img/${baseFoto}.png" alt="${esc(prod.nombre)}" class="img-producto">
+                    </div>
+                    <h3>${esc(prod.nombre)}</h3>
+                    <div class="precio">COP $${prod.precio.toLocaleString('es-CO')}</div>
+                    <div class="selector-cantidad">
+                        <button class="btn-cantidad" data-accion="menos">−</button>
+                        <span class="cantidad-numero" id="cantidad-${prod.id}">0</span>
+                        <button class="btn-cantidad" data-accion="mas">+</button>
+                    </div>
+                `;
+
+                // La foto se busca en este orden: img/XX.png, img/XX.jpg, XX.png, XX.jpg.
+                // Si no existe ninguna, se muestra la imagen genérica "Foto próximamente".
+                const rutasFoto = [
+                    'img/' + baseFoto + '.png', 'img/' + baseFoto + '.jpg',
+                    baseFoto + '.png', baseFoto + '.jpg'
+                ];
+                let intentoFoto = 0;
+                card.querySelector('img').addEventListener('error', function () {
+                    intentoFoto++;
+                    this.src = intentoFoto < rutasFoto.length ? rutasFoto[intentoFoto] : SIN_FOTO;
+                });
+
+                card.querySelector('[data-accion="menos"]').onclick = () => cambiarCantidad(prod, -1);
+                card.querySelector('[data-accion="mas"]').onclick = () => cambiarCantidad(prod, 1);
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Los productos se leen EN VIVO de la hoja de Doña Marina (pestaña Catálogo).
+        // Si ella cambia un precio en la hoja, la página lo muestra sola.
+        fetch(URL_BACKEND + '?accion=obtenerCatalogoWeb')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'success' || !data.productos) throw new Error('Respuesta inesperada');
+                const lista = data.productos
+                    .filter(p => p.disponible)
+                    .slice(0, PRODUCTOS_EN_PAGINA)
+                    .map(p => ({ id: Number(p.id), nombre: p.nombre, precio: Number(p.precio) || 0 }));
+                if (lista.length === 0) throw new Error('Catálogo vacío');
+                mostrarProductos(lista);
+            })
+            .catch(error => {
+                grid.innerHTML = '<p class="aviso-catalogo">No se pudo cargar el catálogo. ' +
+                    'Por favor recargue la página en unos segundos.</p>';
+            });
+
+        // ===== CHAT DE TEXTO CON MARINA =====
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatEnviar = document.getElementById('chat-enviar');
+        const chatHistorial = document.getElementById('chat-historial');
+
+        let conversacionArturo = [];
+        let temporizadorLimpieza = null;
+
+        // Deja la caja limpia para el siguiente pedido
+        function limpiarChat() {
+            if (temporizadorLimpieza) {
+                clearTimeout(temporizadorLimpieza);
+                temporizadorLimpieza = null;
+            }
+            chatHistorial.innerHTML = '';
+        }
+
+        function agregarMensajeChat(texto, esCliente) {
+            const div = document.createElement('div');
+            div.className = 'msg-chat ' + (esCliente ? 'msg-cliente' : 'msg-arturo');
+            div.innerText = texto;
+            chatHistorial.appendChild(div);
+            chatHistorial.scrollTop = chatHistorial.scrollHeight;
+        }
+
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const texto = chatInput.value.trim();
+            if (!texto) return;
+
+            // Si el pedido anterior ya terminó, empezar con la caja limpia
+            if (temporizadorLimpieza) limpiarChat();
+
+            agregarMensajeChat(texto, true);
+            chatInput.value = '';
+            chatInput.disabled = true;
+            chatEnviar.disabled = true;
+
+            const params = new URLSearchParams({
+                accion: 'hablarConArturo',
+                texto: texto,
+                historial: JSON.stringify(conversacionArturo)
+            });
+
+            fetch(URL_BACKEND + '?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    conversacionArturo = data.historial;
+                    agregarMensajeChat(data.respuesta, false);
+
+                    if (data.terminado) {
+                        agregarMensajeChat(`✅ Pedido #${data.pedido_id} confirmado.`, false);
+                        conversacionArturo = [];
+                        // Se deja ver la confirmación 8 segundos y luego se limpia la caja
+                        temporizadorLimpieza = setTimeout(limpiarChat, 8000);
+                    }
+                } else {
+                    agregarMensajeChat("⚠️ " + (data.message || "No pude entender, intente de nuevo."), false);
+                }
+            })
+            .catch(error => {
+                agregarMensajeChat("❌ No se pudo conectar. Intente de nuevo.", false);
+            })
+            .finally(() => {
+                chatInput.disabled = false;
+                chatEnviar.disabled = false;
+                chatInput.focus();
+            });
+        });
+
+        // ===== FINALIZAR PEDIDO MANUAL (armado con el catálogo) =====
+        btnFinalizar.onclick = function() {
+            const itemsSeleccionados = Object.values(cantidades);
+
+            if (itemsSeleccionados.length === 0) {
+                alert("Este botón es solo para pedidos armados con el catálogo (use los botones + y − para elegir cantidades).\n\nSi ya le escribió a Marina por el chat, su pedido ya quedó registrado — no necesita presionar este botón.");
+                return;
+            }
+
+            const direccion = prompt("Ingrese la dirección de entrega:");
+            if (!direccion) {
+                alert("Debe ingresar una dirección para continuar.");
+                return;
+            }
+
+            const observaciones = prompt("Observaciones (opcional): ej. sin bolsa, tocar el timbre, cambiar marca...") || "";
+
+            let formaPago = prompt("¿Cómo desea pagar? Escriba: Efectivo, Nequi, Daviplata o Tarjeta");
+            if (!formaPago) {
+                formaPago = "No especificado";
+            }
+
+            const nombresPedido = itemsSeleccionados
+                .map(item => `${item.producto.nombre} x${item.cantidad}`)
+                .join(", ");
+
+            const itemsParaDetalle = itemsSeleccionados.map(item => ({
+                producto: item.producto.nombre,
+                cantidad: item.cantidad,
+                precio_unitario: item.producto.precio
+            }));
+
+            const params = new URLSearchParams({
+                accion: 'crearPedido',
+                fecha: new Date().toLocaleString(),
+                direccion: direccion,
+                pedido: nombresPedido,
+                total: totalAcumulado,
+                origen: 'Web Catálogo',
+                pago: formaPago,
+                notas: observaciones,
+                estado: 'Recibido',
+                items: JSON.stringify(itemsParaDetalle)
+            });
+
+            btnFinalizar.disabled = true;
+            btnFinalizar.innerText = "Enviando...";
+
+            fetch(URL_BACKEND + '?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert(`¡Pedido #${data.id} registrado correctamente!\nTotal: $${totalAcumulado.toLocaleString('es-CO')} COP.`);
+                    cantidades = {};
+                    recalcularTotal();
+                    document.querySelectorAll('.producto').forEach(card => {
+                        card.classList.remove('seleccionado');
+                        const numeroEl = card.querySelector('.cantidad-numero');
+                        if (numeroEl) numeroEl.innerText = '0';
+                    });
+                } else {
+                    alert("Error al registrar el pedido: " + data.message);
+                }
+            })
+            .catch(error => {
+                alert("No se pudo conectar con el servidor. Intente nuevamente.");
+            })
+            .finally(() => {
+                btnFinalizar.disabled = false;
+                btnFinalizar.innerText = "Finalizar Pedido";
+            });
+        };
+    </script>
+</body>
+</html>
