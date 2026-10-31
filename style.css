@@ -1,0 +1,224 @@
+/* Tipografía y Reseteo */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap');
+
+:root {
+    --accent-green: #30D158;
+    --accent-green-glow: rgba(48, 209, 88, 0.3);
+    --accent-orange: #FF9F0A;
+    --bg-base: #000000;
+    --bg-surface: #0d0d0d;
+    --bg-elevated: #1a1a1a;
+    --border: #1a1a1a;
+    --text-secondary: #888;
+}
+
+body {
+    background-color: var(--bg-base);
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 340px; /* respaldo si el JS no llega a correr aún; se ajusta solo después */
+}
+
+/* Encabezado */
+.header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px;
+    text-align: center;
+    background-color: #0a0a0a;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    margin: 0;
+    color: #ffffff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.header h1 span {
+    color: var(--accent-green);
+}
+
+/* Instrucción breve para el cliente */
+.instrucciones {
+    max-width: 720px;
+    margin: 14px auto 4px;
+    padding: 10px 18px;
+    text-align: center;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #cfcfcf;
+    background-color: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+.instrucciones strong {
+    color: var(--accent-green);
+}
+
+/* Cuadrícula del Catálogo */
+.catalogo {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+/* Tarjetas de Producto */
+.producto {
+    background-color: var(--bg-surface);
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Estado Inicial — fotos siempre a color real, nunca en gris */
+.producto .img-placeholder {
+    width: 100%;
+    height: 160px;
+    background-color: var(--bg-elevated);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* NUEVA CLASE PARA IMAGENES */
+.img-producto {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.producto h3 {
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    color: #aaa;
+    flex-grow: 1;
+    line-height: 1.4;
+    transition: color 0.3s ease;
+}
+
+.producto .precio {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: #777;
+    transition: color 0.3s ease;
+}
+
+/* Indicador apagado */
+.indicador {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 8px;
+    height: 8px;
+    background-color: #333;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+/* ESTADO ACTIVADO */
+.producto.seleccionado {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 20px var(--accent-green-glow);
+    background-color: #0a180f;
+    transform: translateY(-2px);
+}
+
+.producto.seleccionado .img-placeholder {
+    background-color: #0a180f;
+    border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.producto.seleccionado h3 {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.producto.seleccionado .precio {
+    color: var(--accent-green);
+    font-weight: bold;
+}
+
+.producto.seleccionado .indicador {
+    background-color: var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green), 0 0 20px var(--accent-green);
+}
+
+/* Footer */
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--bg-base);
+    border-top: 1px solid var(--border);
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+}
+
+.footer-content {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.total-box {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.total-box span {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.btn-finalizar {
+    background-color: var(--accent-green);
+    color: #000000;
+    border: none;
+    padding: 16px 32px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+}
+
+.btn-finalizar:hover {
+    background-color: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
